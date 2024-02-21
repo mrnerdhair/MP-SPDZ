@@ -1,0 +1,95 @@
+from Compiler.library import *
+from Compiler.circuit import *
+from Compiler.GC.types import *
+
+sb32 = sbitint.get_type(32)
+
+h = sb32.Array(8).create_from([sb32(0x6a09e667), sb32(0xbb67ae85), sb32(0x3c6ef372), sb32(0xa54ff53a), sb32(0x510e527f), sb32(0x9b05688c), sb32(0x1f83d9ab), sb32(0x5be0cd19)])
+# h = sbv256(0x6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5be0cd19) # constant initializer from sha-256
+
+k = sb32.Array(64).create_from([sb32(0x428a2f98), sb32(0x71374491), sb32(0xb5c0fbcf), sb32(0xe9b5dba5), sb32(0x3956c25b), sb32(0x59f111f1), sb32(0x923f82a4), sb32(0xab1c5ed5),
+   sb32(0xd807aa98), sb32(0x12835b01), sb32(0x243185be), sb32(0x550c7dc3), sb32(0x72be5d74), sb32(0x80deb1fe), sb32(0x9bdc06a7), sb32(0xc19bf174),
+   sb32(0xe49b69c1), sb32(0xefbe4786), sb32(0x0fc19dc6), sb32(0x240ca1cc), sb32(0x2de92c6f), sb32(0x4a7484aa), sb32(0x5cb0a9dc), sb32(0x76f988da),
+   sb32(0x983e5152), sb32(0xa831c66d), sb32(0xb00327c8), sb32(0xbf597fc7), sb32(0xc6e00bf3), sb32(0xd5a79147), sb32(0x06ca6351), sb32(0x14292967),
+   sb32(0x27b70a85), sb32(0x2e1b2138), sb32(0x4d2c6dfc), sb32(0x53380d13), sb32(0x650a7354), sb32(0x766a0abb), sb32(0x81c2c92e), sb32(0x92722c85),
+   sb32(0xa2bfe8a1), sb32(0xa81a664b), sb32(0xc24b8b70), sb32(0xc76c51a3), sb32(0xd192e819), sb32(0xd6990624), sb32(0xf40e3585), sb32(0x106aa070),
+   sb32(0x19a4c116), sb32(0x1e376c08), sb32(0x2748774c), sb32(0x34b0bcb5), sb32(0x391c0cb3), sb32(0x4ed8aa4a), sb32(0x5b9cca4f), sb32(0x682e6ff3),
+   sb32(0x748f82ee), sb32(0x78a5636f), sb32(0x84c87814), sb32(0x8cc70208), sb32(0x90befffa), sb32(0xa4506ceb), sb32(0xbef9a3f7), sb32(0xc67178f2)])
+
+# def rightrotate(x, i):
+#     return (x >> i).bit_and((x << (32 - i)).bit_and(0xffffffff))
+
+def rightrotate(x, i):
+    bits = x.bit_decompose()
+    return sb32.bit_compose(bits[i:] + bits[:i])
+
+def sha256(m, H):
+    a = H[0]
+    b = H[1]
+    c = H[2]
+    d = H[3]
+    e = H[4]
+    f = H[5]
+    g = H[6]
+    h = H[7]
+
+    S1 = sb32(0)
+    ch = sb32(0)
+    temp1 = sb32(0)
+    S0 = sb32(0)
+    maj = sb32(0)
+    temp2 = sb32(0)
+
+    w = sb32.Array(64).create_from([m[i] if i < 16 else sb32(0) for i in range(64)])
+
+    for i in range(16, 64):
+        s0 = rightrotate(w[i-15], 7).bit_xor(rightrotate(w[i-15], 18)).bit_xor(w[i-15] >> 3)
+        s1 = rightrotate(w[i-2], 17).bit_xor(rightrotate(w[i-2], 19)).bit_xor(w[i-2] >> 10)
+        w[i] = w[i-16] + s0 + w[i-7] + s1
+
+    for i in range(64):
+        S1.update(rightrotate(e, 6).bit_xor(rightrotate(e, 11)).bit_xor(rightrotate(e, 25)))
+        ch.update(e.bit_and(f).bit_xor(e.bit_not().bit_and(g)))
+        temp1.update(h + S1 + ch + k[i] + w[i])
+        S0.update(rightrotate(a, 2).bit_xor(rightrotate(a, 13)).bit_xor(rightrotate(a, 22)))
+        maj.update(a.bit_and(b).bit_xor(a.bit_and(c)).bit_xor(b.bit_and(c)))
+        temp2.update(S0 + maj)
+
+        h.update(g)
+        g.update(f)
+        f.update(e)
+        e.update(d + temp1)
+        d.update(c)
+        c.update(b)
+        b.update(a)
+        a.update(temp1 + temp2)
+
+    a.iadd(H[0])
+    b.iadd(H[1])
+    c.iadd(H[2])
+    d.iadd(H[3])
+    e.iadd(H[4])
+    f.iadd(H[5])
+    g.iadd(H[6])
+    h.iadd(H[7])
+
+    return sb32.Array(8).create_from([a, b, c, d, e, f, g, h])
+    # return sbv256.bit_compose(
+    #     a.bit_decompose()[:] +
+    #     b.bit_decompose()[:] +
+    #     c.bit_decompose()[:] +
+    #     d.bit_decompose()[:] +
+    #     e.bit_decompose()[:] +
+    #     f.bit_decompose()[:] +
+    #     g.bit_decompose()[:] +
+    #     h.bit_decompose()[:]
+    # )
+
+m = sb32.Array(16).create_from([sb32(0x80000000), sb32(0), sb32(0), sb32(0), sb32(0), sb32(0), sb32(0), sb32(0), sb32(0), sb32(0), sb32(0), sb32(0), sb32(0), sb32(0), sb32(0), sb32(0)])
+
+x = sha256(m, h).reveal()
+
+for part in x:
+    part.print_reg()
+
+x.print_reg()

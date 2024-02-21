@@ -1,0 +1,140 @@
+from Compiler.library import *
+from Compiler.circuit import *
+from Compiler.GC.types import *
+
+def fromhex(cls, str):
+    x = [sbit(0) if c == '0' else sbit(1) for c in ''.join(f'{z:08b}' for z in bytes.fromhex(str))]
+    # x.reverse()
+    return cls.bit_compose(x)
+    # return cls.from_vec([sbit(0) if c == '0' else sbit(1) for c in ''.join(f'{z:08b}' for z in bytes.fromhex(str))])
+
+s32 = sint.get_type(32)
+sb256 = sbits.get_type(256)
+sb512 = sbits.get_type(512)
+# sba256 = sbit.Array(256)
+# sba512 = sbit.Array(512)
+# sbv256 = sbitvec.get_type(256)
+# sbv512 = sbitvec.get_type(512)
+
+# h = s32.Array(8).create_from([s32(0x6a09e667), s32(0xbb67ae85), s32(0x3c6ef372), s32(0xa54ff53a), s32(0x510e527f), s32(0x9b05688c), s32(0x1f83d9ab), s32(0x5be0cd19)])
+h2 = fromhex(sb256, "6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5be0cd19") # constant initializer from sha-256
+# h2 = sbv256(0x6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5be0cd19) # constant initializer from sha-256
+
+k =    [s32(0x428a2f98), s32(0x71374491), s32(0xb5c0fbcf), s32(0xe9b5dba5), s32(0x3956c25b), s32(0x59f111f1), s32(0x923f82a4), s32(0xab1c5ed5),
+        s32(0xd807aa98), s32(0x12835b01), s32(0x243185be), s32(0x550c7dc3), s32(0x72be5d74), s32(0x80deb1fe), s32(0x9bdc06a7), s32(0xc19bf174),
+        s32(0xe49b69c1), s32(0xefbe4786), s32(0x0fc19dc6), s32(0x240ca1cc), s32(0x2de92c6f), s32(0x4a7484aa), s32(0x5cb0a9dc), s32(0x76f988da),
+        s32(0x983e5152), s32(0xa831c66d), s32(0xb00327c8), s32(0xbf597fc7), s32(0xc6e00bf3), s32(0xd5a79147), s32(0x06ca6351), s32(0x14292967),
+        s32(0x27b70a85), s32(0x2e1b2138), s32(0x4d2c6dfc), s32(0x53380d13), s32(0x650a7354), s32(0x766a0abb), s32(0x81c2c92e), s32(0x92722c85),
+        s32(0xa2bfe8a1), s32(0xa81a664b), s32(0xc24b8b70), s32(0xc76c51a3), s32(0xd192e819), s32(0xd6990624), s32(0xf40e3585), s32(0x106aa070),
+        s32(0x19a4c116), s32(0x1e376c08), s32(0x2748774c), s32(0x34b0bcb5), s32(0x391c0cb3), s32(0x4ed8aa4a), s32(0x5b9cca4f), s32(0x682e6ff3),
+        s32(0x748f82ee), s32(0x78a5636f), s32(0x84c87814), s32(0x8cc70208), s32(0x90befffa), s32(0xa4506ceb), s32(0xbef9a3f7), s32(0xc67178f2)]
+
+# def rightrotate(x, i):
+    # return (x >> i).bit_or((x.right_shift(32 - i, signed=False)))
+
+# def rightrotate(x, i):
+#     return (x >> i).bit_or(x << (32 - i))
+
+def rightrotate(x, i):
+    bits = x.bit_decompose()
+    return s32.bit_compose(bits[i:] + bits[:i])
+
+def sha256(m2, H2):
+    m2 = m2.bit_decompose()
+    print(H2, type(H2))
+    H1 = H2.bit_decompose()
+    print(H1, type(H1))
+    H = [s32.bit_compose(H1[i*32:(i+1)*32]) for i in range(8)]
+
+    a = H[0]
+    b = H[1]
+    c = H[2]
+    d = H[3]
+    e = H[4]
+    f = H[5]
+    g = H[6]
+    h = H[7]
+
+    thing = sum([util.bit_decompose(x) for x in [a, b, c, d, e, f, g, h]], [])
+    print(thing, type(thing), len(thing))
+
+    # S1 = s32(0)
+    # ch = s32(0)
+    # temp1 = s32(0)
+    # S0 = s32(0)
+    # maj = s32(0)
+    # temp2 = s32(0)
+
+    w = [s32.bit_compose(m2[i*32:(i+1)*32]) if i < 16 else s32(0) for i in range(64)]
+    
+    for i in range(16, 64):
+        s0 = rightrotate(w[i-15], 7).bit_xor(rightrotate(w[i-15], 18)).bit_xor(w[i-15] >> 3)
+        s1 = rightrotate(w[i-2], 17).bit_xor(rightrotate(w[i-2], 19)).bit_xor(w[i-2] >> 10)
+        w[i] = w[i-16] + s0 + w[i-7] + s1
+
+    for i in range(64):
+        S1 = rightrotate(e, 6).bit_xor(rightrotate(e, 11)).bit_xor(rightrotate(e, 25))
+        ch = e.bit_and(f).bit_xor(e.bit_not().bit_and(g))
+        temp1 = h + S1 + ch + k[i] + w[i]
+        S0 = rightrotate(a, 2).bit_xor(rightrotate(a, 13)).bit_xor(rightrotate(a, 22))
+        maj = a.bit_and(b).bit_xor(a.bit_and(c)).bit_xor(b.bit_and(c))
+        temp2 = S0 + maj
+
+        h = g
+        g = f
+        f = e
+        e = d + temp1
+        d = c
+        c = b
+        b = a
+        a = temp1 + temp2
+
+    a += H[0]
+    b += H[1]
+    c += H[2]
+    d += H[3]
+    e += H[4]
+    f += H[5]
+    g += H[6]
+    h += H[7]
+
+    print_ln("%s", a.reveal())
+    thing = sum([util.bit_decompose(x) for x in [a, b, c, d, e, f, g, h]], [])
+    return thing
+    # print(thing, type(thing), len(thing))
+    # return sb256.bit_compose(thing)
+
+    # return s32.Array(8).create_from([a, b, c, d, e, f, g, h])
+    # return sbv256.bit_compose(
+    #     a.bit_decompose()[:] +
+    #     b.bit_decompose()[:] +
+    #     c.bit_decompose()[:] +
+    #     d.bit_decompose()[:] +
+    #     e.bit_decompose()[:] +
+    #     f.bit_decompose()[:] +
+    #     g.bit_decompose()[:] +
+    #     h.bit_decompose()[:]
+    # )
+
+# m = s32.Array(16).create_from([s32(0x80000000), s32(0), s32(0), s32(0), s32(0), s32(0), s32(0), s32(0), s32(0), s32(0), s32(0), s32(0), s32(0), s32(0), s32(0), s32(0)])
+m2 = fromhex(sb512, "80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+# m2 = sb512(0x80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000)
+print(m2, type(m2))
+
+# x = sbitvec([m2])
+x = sha256(m2, h2)
+
+def reveal(x):
+    # sbv256.get_type(8).from_vec(x).reveal_print_hex()
+    print(x, type(x))
+    # print(x.elements(), type(x.elements()))
+    # print_ln("%s", x.reveal())
+    # print_ln("%s", [i.reveal() for i in x])
+    # x.elements()[0].reveal().print_reg()
+    # sbitvec.from_vec(x).reveal_print_hex()
+    # for x in x.v:
+        # x.reveal().print_reg()
+
+reveal(x)
+# for part in x.elements():
+#     part.reveal().print_reg()

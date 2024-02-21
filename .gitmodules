@@ -3,7 +3,7 @@
 	url = https://github.com/mkskeller/SimpleOT
 [submodule "Programs/Circuits"]
 	path = Programs/Circuits
-	url = https://github.com/mkskeller/bristol-fashion
+	url = https://github.com/mrnerdhair/bristol-fashion
 [submodule "simde"]
 	path = deps/simde
 	url = https://github.com/simd-everywhere/simde

@@ -1,0 +1,89 @@
+from Compiler.library import *
+from Compiler.circuit import *
+from Compiler.GC.types import *
+
+def fromhex(str):
+    return [sgf2n(x) for x in bytes.fromhex(str)]
+
+h2 = fromhex("6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5be0cd19") # constant initializer from sha-256
+
+k =    [sgf2n(0x428a2f98), sgf2n(0x71374491), sgf2n(0xb5c0fbcf), sgf2n(0xe9b5dba5), sgf2n(0x3956c25b), sgf2n(0x59f111f1), sgf2n(0x923f82a4), sgf2n(0xab1c5ed5),
+        sgf2n(0xd807aa98), sgf2n(0x12835b01), sgf2n(0x243185be), sgf2n(0x550c7dc3), sgf2n(0x72be5d74), sgf2n(0x80deb1fe), sgf2n(0x9bdc06a7), sgf2n(0xc19bf174),
+        sgf2n(0xe49b69c1), sgf2n(0xefbe4786), sgf2n(0x0fc19dc6), sgf2n(0x240ca1cc), sgf2n(0x2de92c6f), sgf2n(0x4a7484aa), sgf2n(0x5cb0a9dc), sgf2n(0x76f988da),
+        sgf2n(0x983e5152), sgf2n(0xa831c66d), sgf2n(0xb00327c8), sgf2n(0xbf597fc7), sgf2n(0xc6e00bf3), sgf2n(0xd5a79147), sgf2n(0x06ca6351), sgf2n(0x14292967),
+        sgf2n(0x27b70a85), sgf2n(0x2e1b2138), sgf2n(0x4d2c6dfc), sgf2n(0x53380d13), sgf2n(0x650a7354), sgf2n(0x766a0abb), sgf2n(0x81c2c92e), sgf2n(0x92722c85),
+        sgf2n(0xa2bfe8a1), sgf2n(0xa81a664b), sgf2n(0xc24b8b70), sgf2n(0xc76c51a3), sgf2n(0xd192e819), sgf2n(0xd6990624), sgf2n(0xf40e3585), sgf2n(0x106aa070),
+        sgf2n(0x19a4c116), sgf2n(0x1e376c08), sgf2n(0x2748774c), sgf2n(0x34b0bcb5), sgf2n(0x391c0cb3), sgf2n(0x4ed8aa4a), sgf2n(0x5b9cca4f), sgf2n(0x682e6ff3),
+        sgf2n(0x748f82ee), sgf2n(0x78a5636f), sgf2n(0x84c87814), sgf2n(0x8cc70208), sgf2n(0x90befffa), sgf2n(0xa4506ceb), sgf2n(0xbef9a3f7), sgf2n(0xc67178f2)]
+
+def rightrotate(x, i):
+    return (x >> i) | (x >> (32 - i))
+
+# def rightrotate(x, i):
+#     return (x >> i).bit_or(x << (32 - i))
+
+# def rightrotate(x, i):
+#     bits = x.bit_decompose()
+#     return s32.bit_compose(bits[i:] + bits[:i])
+
+def sha256(m2, H1):
+    H = [sgf2n.bit_compose(H1[i*32:(i+1)*32]) for i in range(8)]
+
+    a = H[0]
+    b = H[1]
+    c = H[2]
+    d = H[3]
+    e = H[4]
+    f = H[5]
+    g = H[6]
+    h = H[7]
+
+    # S1 = s32(0)
+    # ch = s32(0)
+    # temp1 = s32(0)
+    # S0 = s32(0)
+    # maj = s32(0)
+    # temp2 = s32(0)
+
+    w = [sgf2n.bit_compose(m2[i*32:(i+1)*32]) if i < 16 else sgf2n(0) for i in range(64)]
+
+    for i in range(16, 64):
+        s0 = rightrotate(w[i-15], 7).bit_xor(rightrotate(w[i-15], 18)).bit_xor(w[i-15] >> 3)
+        s1 = rightrotate(w[i-2], 17).bit_xor(rightrotate(w[i-2], 19)).bit_xor(w[i-2] >> 10)
+        w[i] = w[i-16] + s0 + w[i-7] + s1
+
+    for i in range(64):
+        S1 = rightrotate(e, 6).bit_xor(rightrotate(e, 11)).bit_xor(rightrotate(e, 25))
+        ch = e.bit_and(f).bit_xor(e.bit_not().bit_and(g))
+        temp1 = h + S1 + ch + k[i] + w[i]
+        S0 = rightrotate(a, 2) ^ (rightrotate(a, 13)) ^ (rightrotate(a, 22))
+        maj = a.bit_and(b).bit_xor(a.bit_and(c)).bit_xor(b.bit_and(c))
+        temp2 = S0 + maj
+
+        h = g
+        g = f
+        f = e
+        e = d + temp1
+        d = c
+        c = b
+        b = a
+        a = temp1 + temp2
+
+    a += H[0]
+    b += H[1]
+    c += H[2]
+    d += H[3]
+    e += H[4]
+    f += H[5]
+    g += H[6]
+    h += H[7]
+
+    return sum([util.bit_decompose(x) for x in [a, b, c, d, e, f, g, h]], [])
+
+m2 = [sgf2n(0x80000000), sgf2n(0), sgf2n(0), sgf2n(0), sgf2n(0), sgf2n(0), sgf2n(0), sgf2n(0), sgf2n(0), sgf2n(0), sgf2n(0), sgf2n(0), sgf2n(0), sgf2n(0), sgf2n(0), sgf2n(0)]
+# m2 = fromhex("80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+
+x = sha256(m2, h2)
+
+for i in x:
+    print_ln(x.reveal())
