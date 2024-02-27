@@ -2,10 +2,26 @@ from Compiler.library import *
 from Compiler.circuit import *
 from Compiler.GC.types import *
 
-sbv80  = sbitvec.get_type(80)
-sbv176 = sbitvec.get_type(176)
-sbv256 = sbitvec.get_type(256)
-sbv512 = sbitvec.get_type(512)
+sb80 = sbits.get_type(80)
+# sbv80  = sbitvec.get_type(80)
+sb176 = sbits.get_type(176)
+# sbv176 = sbitvec.get_type(176)
+sb256 = sbits.get_type(256)
+# sbv256 = sbitvec.get_type(256)
+sb512 = sbits.get_type(512)
+# sbv512 = sbitvec.get_type(512)
+
+def sbv80(x):
+    return sbitvec([sb80(x)])
+
+def sbv176(x):
+    return sbitvec([sb176(x)])
+
+def sbv256(x):
+    return sbitvec([sb256(x)])
+
+def sbv512(x):
+    return sbitvec([sb512(x)])
 
 sha256 = Circuit('sha256')
 
@@ -17,21 +33,21 @@ tls_handshake_secret_ikm = sbv256(0x8bd4054fb55b9d63fdfbacf9f04b9f0d35e6d63f5375
 tls_ch_sh_traffic_transcript_hash = sbv256(0x860c06edc07858ee8e78f0e7428c58edd6b43f2ca3e6e95f02ed063cf0e1cad8) # from rfc8448
 tls_ch_sf_traffic_transcript_hash = sbv256(0x9608102a0f1ccc6db6250b7b7e417b1a000eaada3daae4777a7686c9ff83df13) # from rfc8448
 
-h = sbv256(0x6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5be0cd19) # constant initializer from sha-256
-ipad = sbv512(0x36363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636) # HMAC ipad value
-opad = sbv512(0x5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c) # HMAC opad value
+H = sbv256(0x6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5be0cd19) # constant initializer from sha-256
+IPAD = sbv512(0x36363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636) # HMAC ipad value
+OPAD = sbv512(0x5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c) # HMAC opad value
 
-zeroes_padded = sbv512(0x00000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000300) # 0u256 padded for sha-256
-hmac_key_padding = sbv256(0x0000000000000000000000000000000000000000000000000000000000000000)
-hmac_outer_block_padding = sbv256(0x8000000000000000000000000000000000000000000000000000000000000300)
+ZEROES_PADDED = sbv512(0x00000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000300) # 0u256 padded for sha-256
+HMAC_KEY_PADDING = sbv256(0x0000000000000000000000000000000000000000000000000000000000000000)
+HMAC_OUTER_BLOCK_PADDING = sbv256(0x8000000000000000000000000000000000000000000000000000000000000300)
 
 # zero_key_hmac_inner_intermediate = sha256(ipad, h)
 # reveal(zero_key_hmac_inner_intermediate)
-zero_key_hmac_inner_intermediate = sbv256(0xf454dead9725214f90daf2a0df1228ea64e5750fa3924181824a932bf8e04e32)
+ZERO_KEY_HMAC_INNER_INTERMEDIATE = sbv256(0xf454dead9725214f90daf2a0df1228ea64e5750fa3924181824a932bf8e04e32)
 
 # zero_key_hmac_outer_intermediate = sha256(opad, h)
 # reveal(zero_key_hmac_outer_intermediate)
-zero_key_hmac_outer_intermediate = sbv256(0xd385480f7abb647737c9c5385dd824678e043a72753434b0deb82818361d45a6)
+ZERO_KEY_HMAC_OUTER_INTERMEDIATE = sbv256(0xd385480f7abb647737c9c5385dd824678e043a72753434b0deb82818361d45a6)
 
 # tls_early_secret_hmac_inner = sha256(zeroes_padded, zero_key_hmac_inner_intermediate)
 # tls_early_secret = sha256(sbitvec.combine([hmac_outer_block_padding, tls_early_secret_hmac_inner]), zero_key_hmac_outer_intermediate)
@@ -40,10 +56,10 @@ zero_key_hmac_outer_intermediate = sbv256(0xd385480f7abb647737c9c5385dd824678e04
 
 # tls_early_secret_padded = sbitvec.combine([hmac_key_padding, tls_early_secret])
 # reveal(tls_early_secret_padded)
-tls_early_secret_padded = sbv512(0x33ad0a1c607ec03b09e6cd9893680ce210adf300aa1f2660e1b22e10f170f92a0000000000000000000000000000000000000000000000000000000000000000)
+TLS_EARLY_SECRET_PADDED = sbv512(0x33ad0a1c607ec03b09e6cd9893680ce210adf300aa1f2660e1b22e10f170f92a0000000000000000000000000000000000000000000000000000000000000000)
 
 #tls_derived_label = 0x00200d746c733133206465726976656420e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85501 # [32u16, len("tls13 derived") as u8, "tls13 derived", 32u8, sha256(""), 0x01] (last 0x01 is for HMAC round T(1))
-tls_derived_label_padded = sbv512(0x00200d746c733133206465726976656420e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855018000000000000000000000000390) # padded with sha-256 terminator, assuming a previous block of key state
+TLS_DERIVED_LABEL_PADDED = sbv512(0x00200d746c733133206465726976656420e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855018000000000000000000000000390) # padded with sha-256 terminator, assuming a previous block of key state
 
 # # tls_early_secret_derived_hmac_inner_intermediate = sha256((tls_early_secret_padded ^ ipad), h)
 # # tls_early_secret_derived_hmac_inner = sha256(tls_derived_label_padded, tls_early_secret_derived_hmac_inner_intermediate)
@@ -58,22 +74,22 @@ tls_derived_label_padded = sbv512(0x00200d746c733133206465726976656420e3b0c44298
 
 # tls_handshake_secret_hmac_outer_intermediate = sha256((tls_early_secret_derived_padded ^ opad), h)
 # reveal(tls_handshake_secret_hmac_outer_intermediate)
-tls_handshake_secret_hmac_outer_intermediate = sbv256(0x22b91d2fa7f9ba55ba705a48a6bef047f5ba9b91c425b796db8072a69037dbc2)
+TLS_HANDSHAKE_SECRET_HMAC_OUTER_INTERMEDIATE = sbv256(0x22b91d2fa7f9ba55ba705a48a6bef047f5ba9b91c425b796db8072a69037dbc2)
 
 # tls_handshake_secret_hmac_inner_intermediate = sha256((tls_early_secret_derived_padded ^ ipad), h)
 # reveal(tls_handshake_secret_hmac_inner_intermediate)
-tls_handshake_secret_hmac_inner_intermediate = sbv256(0x8b35051c8324ce6fd35fd44205006b0b11f653de8717002453923a721a2e89f5)
+TLS_HANDSHAKE_SECRET_HMAC_INNER_INTERMEDIATE = sbv256(0x8b35051c8324ce6fd35fd44205006b0b11f653de8717002453923a721a2e89f5)
 
-tls_handshake_secret_ikm_padded = sbitvec.combine([hmac_outer_block_padding, tls_handshake_secret_ikm])
+tls_handshake_secret_ikm_padded = sbitvec.combine([HMAC_OUTER_BLOCK_PADDING, tls_handshake_secret_ikm])
 
-tls_handshake_secret_hmac_inner = sha256(tls_handshake_secret_ikm_padded, tls_handshake_secret_hmac_inner_intermediate)
-tls_handshake_secret = sha256(sbitvec.combine([hmac_outer_block_padding, tls_handshake_secret_hmac_inner]), tls_handshake_secret_hmac_outer_intermediate)
+tls_handshake_secret_hmac_inner = sha256(tls_handshake_secret_ikm_padded, TLS_HANDSHAKE_SECRET_HMAC_INNER_INTERMEDIATE)
+tls_handshake_secret = sha256(sbitvec.combine([HMAC_OUTER_BLOCK_PADDING, tls_handshake_secret_hmac_inner]), TLS_HANDSHAKE_SECRET_HMAC_OUTER_INTERMEDIATE)
 #reveal(tls_handshake_secret)
 
-tls_handshake_secret_padded = sbitvec.combine([hmac_key_padding, tls_handshake_secret])
-tls_handshake_secret_derived_hmac_outer_intermediate = sha256((tls_handshake_secret_padded ^ opad), h)
+tls_handshake_secret_padded = sbitvec.combine([HMAC_KEY_PADDING, tls_handshake_secret])
+tls_handshake_secret_derived_hmac_outer_intermediate = sha256((tls_handshake_secret_padded ^ OPAD), H)
 reveal(tls_handshake_secret_derived_hmac_outer_intermediate) # 0x2dde0fbb235022bd7d4af6a25f93247c046021696a6f5005bbd4bc40de2dd147
-tls_handshake_secret_derived_hmac_inner_intermediate = sha256((tls_handshake_secret_padded ^ ipad), h)
+tls_handshake_secret_derived_hmac_inner_intermediate = sha256((tls_handshake_secret_padded ^ IPAD), H)
 
 tls_c_hs_traffic_label_padded_prefix = sbv176(0x002012746c7331332063206873207472616666696320) # [32u16, len("tls13 c hs traffic") as u8, "tls13 c hs traffic", 32u8]
 tls_c_hs_traffic_label_padded_suffix = sbv80(0x018000000000000003b8) # 0x01 for HMAC round T(1), then sha-256 terminator padding assuming a previous block of key state
@@ -93,21 +109,21 @@ reveal(tls_s_hs_traffic_secret_hmac_inner) # 0x3e1a86769f8437b19038add13882a9759
 # tls_s_hs_traffic_secret = sha256(sbitvec.combine([hmac_outer_block_padding, tls_s_hs_traffic_secret_hmac_inner]), tls_handshake_secret_derived_hmac_outer_intermediate)
 # reveal(tls_s_hs_traffic_secret)
 
-tls_handshake_secret_derived_hmac_inner = sha256(tls_derived_label_padded, tls_handshake_secret_derived_hmac_inner_intermediate)
-tls_handshake_secret_derived = sha256(sbitvec.combine([hmac_outer_block_padding, tls_handshake_secret_derived_hmac_inner]), tls_handshake_secret_derived_hmac_outer_intermediate)
+tls_handshake_secret_derived_hmac_inner = sha256(TLS_DERIVED_LABEL_PADDED, tls_handshake_secret_derived_hmac_inner_intermediate)
+tls_handshake_secret_derived = sha256(sbitvec.combine([HMAC_OUTER_BLOCK_PADDING, tls_handshake_secret_derived_hmac_inner]), tls_handshake_secret_derived_hmac_outer_intermediate)
 #reveal(tls_handshake_secret_derived)
 
-tls_handshake_secret_derived_padded = sbitvec.combine([hmac_key_padding, tls_handshake_secret_derived])
-tls_master_secret_hmac_inner_intermediate = sha256((tls_handshake_secret_derived_padded ^ ipad), h)
-tls_master_secret_hmac_inner = sha256(zeroes_padded, tls_master_secret_hmac_inner_intermediate)
-tls_master_secret_hmac_outer_intermediate = sha256((tls_handshake_secret_derived_padded ^ opad), h)
-tls_master_secret = sha256(sbitvec.combine([hmac_outer_block_padding, tls_master_secret_hmac_inner]), tls_master_secret_hmac_outer_intermediate)
+tls_handshake_secret_derived_padded = sbitvec.combine([HMAC_KEY_PADDING, tls_handshake_secret_derived])
+tls_master_secret_hmac_inner_intermediate = sha256((tls_handshake_secret_derived_padded ^ IPAD), H)
+tls_master_secret_hmac_inner = sha256(ZEROES_PADDED, tls_master_secret_hmac_inner_intermediate)
+tls_master_secret_hmac_outer_intermediate = sha256((tls_handshake_secret_derived_padded ^ OPAD), H)
+tls_master_secret = sha256(sbitvec.combine([HMAC_OUTER_BLOCK_PADDING, tls_master_secret_hmac_inner]), tls_master_secret_hmac_outer_intermediate)
 #reveal(tls_master_secret)
 
-tls_master_secret_padded = sbitvec.combine([hmac_key_padding, tls_master_secret])
-tls_master_secret_derived_hmac_outer_intermediate = sha256((tls_master_secret_padded ^ opad), h)
+tls_master_secret_padded = sbitvec.combine([HMAC_KEY_PADDING, tls_master_secret])
+tls_master_secret_derived_hmac_outer_intermediate = sha256((tls_master_secret_padded ^ OPAD), H)
 reveal(tls_master_secret_derived_hmac_outer_intermediate) # 0x635cd997c687b153a1e078d0cbfc124299f495ce2b0bec644b690bdd2c732ea1
-tls_master_secret_derived_hmac_inner_intermediate = sha256((tls_master_secret_padded ^ ipad), h)
+tls_master_secret_derived_hmac_inner_intermediate = sha256((tls_master_secret_padded ^ IPAD), H)
 
 tls_c_ap_traffic_label_padded_prefix = sbv176(0x002012746c7331332063206170207472616666696320) # [32u16, len("tls13 c ap traffic") as u8, "tls13 c ap traffic", 32u8]
 tls_c_ap_traffic_label_padded_suffix = sbv80(0x018000000000000003b8) # 0x01 for HMAC round T(1), then sha-256 terminator padding assuming a previous block of key state

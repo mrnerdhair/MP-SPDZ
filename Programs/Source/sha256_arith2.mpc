@@ -5,7 +5,7 @@ from Compiler.GC.types import *
 def fromhex(str):
     return [sgf2n(x) for x in bytes.fromhex(str)]
 
-h2 = fromhex("6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5be0cd19") # constant initializer from sha-256
+h2 = [sgf2n(0x6a09e667), sgf2n(0xbb67ae85), sgf2n(0x3c6ef372), sgf2n(0xa54ff53a), sgf2n(0x510e527f), sgf2n(0x9b05688c), sgf2n(0x1f83d9ab), sgf2n(0X5be0cd19)] # constant initializer from sha-256
 
 k =    [sgf2n(0x428a2f98), sgf2n(0x71374491), sgf2n(0xb5c0fbcf), sgf2n(0xe9b5dba5), sgf2n(0x3956c25b), sgf2n(0x59f111f1), sgf2n(0x923f82a4), sgf2n(0xab1c5ed5),
         sgf2n(0xd807aa98), sgf2n(0x12835b01), sgf2n(0x243185be), sgf2n(0x550c7dc3), sgf2n(0x72be5d74), sgf2n(0x80deb1fe), sgf2n(0x9bdc06a7), sgf2n(0xc19bf174),

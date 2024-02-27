@@ -1,0 +1,167 @@
+from Compiler.library import *
+from Compiler.circuit import *
+from Compiler.GC.types import *
+
+sb32 = sbits.get_type(32)
+sb80 = sbits.get_type(80)
+sb96 = sbits.get_type(96)
+sb128 = sbits.get_type(128)
+sb176 = sbits.get_type(176)
+sb192 = sbits.get_type(192)
+sb256 = sbits.get_type(256)
+sb272 = sbits.get_type(272)
+sb448 = sbits.get_type(448)
+sb512 = sbits.get_type(512)
+
+sha256_circuit = Circuit('sha256')
+
+def sha256(x):
+    return sha256_circuit(sbitvec([i for i, _ in x]), sbitvec([j for _, j in x])).elements()
+
+def concatsb256(x, y):
+    return (sb448(x) << 256).bit_xor(y)
+
+def get_input_from(cls, player):
+    return cls.bit_compose(sum([x.bit_decompose() for x in [sb32.get_input_from(player) for _ in range(0, cls.n >> 5)]].__reversed__(), []))
+
+HKDF_LABEL_C_HS =  sb512(0x00000000000000000063206873000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000)
+HKDF_LABEL_S_HS =  sb512(0x00000000000000000073206873000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000)
+HKDF_LABEL_C_AP =  sb512(0x00000000000000000063206170000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000)
+HKDF_LABEL_BLANK = sb512(0x002012746c73313320000000002074726166666963200000000000000000000000000000000000000000000000000000000000000000018000000000000003b8)
+def build_hkdf_label(x, y):
+    return (sb448(x) << 80).bit_xor(HKDF_LABEL_BLANK).bit_xor(y)
+
+HKDF_LABEL_KEY =   sb512(0x001009746c733133206b657900018000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000270)
+HKDF_LABEL_IV =    sb512(0x000c08746c7331332069760001800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000268)
+
+def reveal(x):
+    x.reveal().print_reg()
+
+# tls_handshake_secret_ikm = sb256(0x8bd4054fb55b9d63fdfbacf9f04b9f0d35e6d63f537563efd46272900f89492d) # ecdhe result from rfc8448
+# tls_ch_sh_traffic_transcript_hash = sb256(0x860c06edc07858ee8e78f0e7428c58edd6b43f2ca3e6e95f02ed063cf0e1cad8) # from rfc8448
+# tls_ch_sf_traffic_transcript_hash = sb256(0x9608102a0f1ccc6db6250b7b7e417b1a000eaada3daae4777a7686c9ff83df13) # from rfc8448
+
+tls_handshake_secret_ikm = get_input_from(sb256, 0)
+tls_ch_sh_traffic_transcript_hash = get_input_from(sb256, 0)
+tls_ch_sf_traffic_transcript_hash = get_input_from(sb256, 0)
+
+H = sb256(0x6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5be0cd19) # constant initializer from sha-256
+IPAD = sb512(0x36363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636) # HMAC ipad value
+OPAD = sb512(0x5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c) # HMAC opad value
+
+ZEROES_PADDED = sb512(0x00000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000300) # 0u256 padded for sha-256
+HMAC_KEY_PADDING = sb256(0x0000000000000000000000000000000000000000000000000000000000000000)
+HMAC_OUTER_BLOCK_PADDING = sb256(0x8000000000000000000000000000000000000000000000000000000000000300)
+TLS_DERIVED_LABEL_PADDED = sb512(0x00200d746c733133206465726976656420e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855018000000000000000000000000390) # padded with sha-256 terminator, assuming a previous block of key state
+TLS_HANDSHAKE_SECRET_HMAC_OUTER_INTERMEDIATE = sb256(0x22b91d2fa7f9ba55ba705a48a6bef047f5ba9b91c425b796db8072a69037dbc2)
+TLS_HANDSHAKE_SECRET_HMAC_INNER_INTERMEDIATE = sb256(0x8b35051c8324ce6fd35fd44205006b0b11f653de8717002453923a721a2e89f5)
+
+[tls_handshake_secret_hmac_inner] = sha256([(concatsb256(tls_handshake_secret_ikm, HMAC_OUTER_BLOCK_PADDING), TLS_HANDSHAKE_SECRET_HMAC_INNER_INTERMEDIATE)])
+[tls_handshake_secret] = sha256([(concatsb256(tls_handshake_secret_hmac_inner, HMAC_OUTER_BLOCK_PADDING), TLS_HANDSHAKE_SECRET_HMAC_OUTER_INTERMEDIATE)])
+# reveal(tls_handshake_secret) # 0x1dc826e93606aa6fdc0aadc12f741b01046aa6b99f691ed221a9f0ca043fbeac
+
+tls_handshake_secret_padded = concatsb256(tls_handshake_secret, HMAC_KEY_PADDING)
+
+[
+    tls_handshake_secret_derived_hmac_outer_intermediate,
+    tls_handshake_secret_derived_hmac_inner_intermediate,
+] = sha256([
+    (tls_handshake_secret_padded ^ OPAD, H),
+    (tls_handshake_secret_padded ^ IPAD, H),
+])
+reveal(tls_handshake_secret_derived_hmac_outer_intermediate) # 0x2dde0fbb235022bd7d4af6a25f93247c046021696a6f5005bbd4bc40de2dd147
+# reveal(tls_handshake_secret_derived_hmac_inner_intermediate) # 0xcd5146fe6806d3bd689ca021f0a8ee1cca5a6adefbe31e1ceafa67fae507a371
+
+[
+    tls_c_hs_traffic_secret_hmac_inner,
+    tls_s_hs_traffic_secret_hmac_inner,
+    tls_handshake_secret_derived_hmac_inner,
+] = sha256([
+    (build_hkdf_label(tls_ch_sh_traffic_transcript_hash, HKDF_LABEL_C_HS), tls_handshake_secret_derived_hmac_inner_intermediate),
+    (build_hkdf_label(tls_ch_sh_traffic_transcript_hash, HKDF_LABEL_S_HS), tls_handshake_secret_derived_hmac_inner_intermediate),
+    (TLS_DERIVED_LABEL_PADDED, tls_handshake_secret_derived_hmac_inner_intermediate),
+])
+
+reveal(tls_c_hs_traffic_secret_hmac_inner) # 0x6faab530a4b8341ee76913cd3b134619ce21dc59760b71b307bba9e606ba6256
+reveal(tls_s_hs_traffic_secret_hmac_inner) # 0x3e1a86769f8437b19038add13882a97595558fe0f022e6c988fc6506326ab50a
+
+[tls_handshake_secret_derived] = sha256([(concatsb256(tls_handshake_secret_derived_hmac_inner, HMAC_OUTER_BLOCK_PADDING), tls_handshake_secret_derived_hmac_outer_intermediate)])
+# reveal(tls_handshake_secret_derived)
+
+tls_handshake_secret_derived_padded = concatsb256(tls_handshake_secret_derived, HMAC_KEY_PADDING)
+[
+    tls_master_secret_hmac_outer_intermediate,
+    tls_master_secret_hmac_inner_intermediate,
+] = sha256([
+    (tls_handshake_secret_derived_padded ^ OPAD, H),
+    (tls_handshake_secret_derived_padded ^ IPAD, H),
+])
+[tls_master_secret_hmac_inner] = sha256([(ZEROES_PADDED, tls_master_secret_hmac_inner_intermediate)])
+[tls_master_secret] = sha256([(concatsb256(tls_master_secret_hmac_inner, HMAC_OUTER_BLOCK_PADDING), tls_master_secret_hmac_outer_intermediate)])
+# reveal(tls_master_secret)
+
+tls_master_secret_padded = concatsb256(tls_master_secret, HMAC_KEY_PADDING)
+[
+    tls_master_secret_derived_hmac_outer_intermediate,
+    tls_master_secret_derived_hmac_inner_intermediate,
+] = sha256([
+    (tls_master_secret_padded ^ OPAD, H),
+    (tls_master_secret_padded ^ IPAD, H),
+])
+# reveal(tls_master_secret_derived_hmac_outer_intermediate) # 0x635cd997c687b153a1e078d0cbfc124299f495ce2b0bec644b690bdd2c732ea1
+
+[tls_c_ap_traffic_secret_hmac_inner] = sha256([(build_hkdf_label(tls_ch_sf_traffic_transcript_hash, HKDF_LABEL_C_AP), tls_master_secret_derived_hmac_inner_intermediate)])
+# reveal(tls_c_ap_traffic_secret_hmac_inner) # 0x3b57774842c2cec88a41b7437d9eab64ae5965d8b39e7fb569b5d050da628527
+
+[tls_c_ap_traffic_secret] = sha256([(concatsb256(tls_c_ap_traffic_secret_hmac_inner, HMAC_OUTER_BLOCK_PADDING), tls_master_secret_derived_hmac_outer_intermediate)])
+reveal(tls_c_ap_traffic_secret)
+
+tls_c_ap_traffic_secret_padded = concatsb256(tls_c_ap_traffic_secret, HMAC_KEY_PADDING)
+[
+    tls_c_ap_traffic_secret_derived_hmac_outer_intermediate,
+    tls_c_ap_traffic_secret_derived_hmac_inner_intermediate,
+] = sha256([
+    (tls_c_ap_traffic_secret_padded ^ OPAD, H),
+    (tls_c_ap_traffic_secret_padded ^ IPAD, H),
+])
+
+[
+    tls_c_ap_traffic_secret_key_hmac_inner,
+    tls_c_ap_traffic_secret_iv_hmac_inner,
+] = sha256([
+    (HKDF_LABEL_KEY, tls_c_ap_traffic_secret_derived_hmac_inner_intermediate),
+    (HKDF_LABEL_IV, tls_c_ap_traffic_secret_derived_hmac_inner_intermediate),
+])
+
+[
+    tls_c_ap_traffic_secret_key_raw,
+    tls_c_ap_traffic_secret_iv_raw,
+] = sha256([
+    (concatsb256(tls_c_ap_traffic_secret_key_hmac_inner, HMAC_OUTER_BLOCK_PADDING), tls_c_ap_traffic_secret_derived_hmac_outer_intermediate),
+    (concatsb256(tls_c_ap_traffic_secret_iv_hmac_inner, HMAC_OUTER_BLOCK_PADDING), tls_c_ap_traffic_secret_derived_hmac_outer_intermediate),
+])
+tls_c_ap_traffic_secret_key = sb128.bit_compose(tls_c_ap_traffic_secret_key_raw.bit_decompose()[128:])
+reveal(tls_c_ap_traffic_secret_key)
+
+tls_c_ap_traffic_secret_iv = sb96.bit_compose(tls_c_ap_traffic_secret_iv_raw.bit_decompose()[160:])
+tls_c_ap_traffic_secret_iv_prepped = sb128.bit_compose([sbit(0)] * 32 + tls_c_ap_traffic_secret_iv.bit_decompose())
+reveal(tls_c_ap_traffic_secret_iv_prepped)
+
+# s32 = sint.get_type(32)
+# def reveal_to(player, x):
+#     b = x.bit_decompose()
+#     for i in range(0, x.n >> 5).__reversed__():
+#         print_ln_to(player, "%s", s32.bit_compose(b[i*32:(i+1)*32]).reveal_to(0))
+
+start_timer(1)
+
+aes128 = Circuit('aes_128')
+plaintexts = list([sb128(0)] + [tls_c_ap_traffic_secret_iv_prepped ^ sb128(i) for i in range(1, 1026)])
+ciphertexts = aes128(sbitvec([tls_c_ap_traffic_secret_key] * 1026), sbitvec(plaintexts))
+gcm_h = ciphertexts.elements()[0]
+gcm_s = ciphertexts.elements()[1]
+for i, element in enumerate(ciphertexts.elements()[2:]):
+    reveal(get_input_from(sb128, 0) ^ element)
+    # reveal(element)
+
+start_timer(2)
