@@ -3,8 +3,25 @@ from Compiler.circuit import *
 from Compiler.GC.types import *
 
 sb128 = sbits.get_type(128)
+sb1408 = sbits.get_type(1408)
+
 key = sb128(0x2b7e151628aed2a6abf7158809cf4f3c)
+# key = sb128(0x3c4fcf098815f7aba6d2ae2816157e2b)
 plaintext = sb128(0x6bc1bee22e409f96e93d7e117393172a)
-aes128 = Circuit('aes_128')
-ciphertexts = aes128(sbitvec([key]), sbitvec([plaintext]))
-ciphertexts.elements()[0].reveal().print_reg()
+# plaintext = sb128(0x2a179373117e3de9969f402ee2bec16b)
+
+key = sb128.bit_compose(key.bit_decompose().__reversed__())
+plaintext = sb128.bit_compose(plaintext.bit_decompose().__reversed__())
+
+# aes128 = Circuit('aes128_garble')
+# ciphertexts = aes128(sbitvec([key]), sbitvec([plaintext]))
+
+aes128_key_schedule = Circuit('aes128_key_schedule')
+key_schedule = aes128_key_schedule(sbitvec([key])).elements()[0]
+key_schedule = sb1408.bit_compose(key_schedule.bit_decompose().__reversed__())
+# key_schedule.reveal().print_reg()
+
+aes128_with_key_schedule = Circuit('aes128_with_key_schedule')
+ciphertexts = aes128_with_key_schedule(sbitvec([key_schedule]), sbitvec([plaintext]))
+
+ciphertexts.elements()[0].reveal().print_reg() # 0x3ad77bb40d7a3660a89ecaf32466ef97

@@ -155,13 +155,29 @@ reveal(tls_c_ap_traffic_secret_iv_prepped)
 
 start_timer(1)
 
-aes128 = Circuit('aes_128')
+def reverse_bits(x):
+    return sbits.get_type(x.n).bit_compose(x.bit_decompose().__reversed__())
+
+aes128_key_schedule = Circuit('aes128_key_schedule')
+aes128_with_key_schedule = Circuit('aes128_with_key_schedule')
+
+tls_c_ap_traffic_secret_key_schedule = aes128_key_schedule(sbitvec([reverse_bits(tls_c_ap_traffic_secret_key)])).elements()[0]
+tls_c_ap_traffic_secret_key_schedule_reversed =  reverse_bits(tls_c_ap_traffic_secret_key_schedule)
+
+start_timer(2)
+
 plaintexts = list([sb128(0)] + [tls_c_ap_traffic_secret_iv_prepped ^ sb128(i) for i in range(1, 1026)])
-ciphertexts = aes128(sbitvec([tls_c_ap_traffic_secret_key] * 1026), sbitvec(plaintexts))
+plaintexts = list([reverse_bits(x) for x in plaintexts])
+ciphertexts = aes128_with_key_schedule(sbitvec([tls_c_ap_traffic_secret_key_schedule_reversed] * 1026), sbitvec(plaintexts))
+
+# aes128 = Circuit('aes_128')
+# plaintexts = list([sb128(0)] + [tls_c_ap_traffic_secret_iv_prepped ^ sb128(i) for i in range(1, 1026)])
+# ciphertexts = aes128(sbitvec([tls_c_ap_traffic_secret_key] * 1026), sbitvec(plaintexts))
+
 gcm_h = ciphertexts.elements()[0]
+# reveal(gcm_h) # 0x90f036b71481be7c5c3a477c320373d1
 gcm_s = ciphertexts.elements()[1]
+# reveal(gcm_s) # 0x595e164e537354b9627ea253d23e883e
 for i, element in enumerate(ciphertexts.elements()[2:]):
     reveal(get_input_from(sb128, 0) ^ element)
     # reveal(element)
-
-start_timer(2)

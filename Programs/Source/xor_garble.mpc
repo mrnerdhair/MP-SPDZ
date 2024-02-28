@@ -1,0 +1,16 @@
+from Compiler.library import *
+from Compiler.circuit import *
+from Compiler.GC.types import *
+
+sb8 = sbits.get_type(8)
+
+a = sb8(0x08)
+b = sb8(0x10)
+
+c = sb8.bit_compose(a.bit_decompose().__reversed__())
+d = sb8.bit_compose(b.bit_decompose().__reversed__())
+
+xor = Circuit('xor_garble')
+out = xor(sbitvec([c]), sbitvec([d]))
+
+out.elements()[0].reveal().print_reg() # 0x3ad77bb40d7a3660a89ecaf32466ef97
