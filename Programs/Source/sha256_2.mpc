@@ -2,6 +2,17 @@ from Compiler.library import *
 from Compiler.circuit import *
 from Compiler.GC.types import *
 
+plaintext_len_bytes = 51
+plaintext_len_bits = plaintext_len_bytes * 8
+plaintext_len_blocks = -(plaintext_len_bytes // -16)
+
+ciphertext_mask = 0
+if plaintext_len_bits < plaintext_len_blocks * 128:
+    for _ in range(0, (plaintext_len_blocks * 128) - plaintext_len_bits):
+        ciphertext_mask <<= 1
+        ciphertext_mask |= 1
+    ciphertext_mask = ~ciphertext_mask
+
 sb32 = sbits.get_type(32)
 sb80 = sbits.get_type(80)
 sb96 = sbits.get_type(96)
@@ -13,8 +24,23 @@ sb272 = sbits.get_type(272)
 sb448 = sbits.get_type(448)
 sb512 = sbits.get_type(512)
 
-sha256_circuit = Circuit('sha256')
 
+def reverse_bits(x):
+    return sbits.get_type(x.n).bit_compose(x.bit_decompose().__reversed__())
+
+gmul_raw = Circuit('gmul')
+def gmul(x):
+    return gmul_raw(sbitvec([reverse_bits(i) for i, _ in x]), sbitvec([reverse_bits(j) for _, j in x])).elements()
+
+aes128_key_schedule_raw = Circuit('aes128_key_schedule')
+def aes128_key_schedule(x):
+    return aes128_key_schedule_raw(sbitvec([reverse_bits(i) for i in x])).elements()
+
+aes128_with_key_schedule_raw = Circuit('aes128_with_key_schedule')
+def aes128_with_key_schedule(x):
+    return aes128_with_key_schedule_raw(sbitvec([reverse_bits(i) for i, _ in x]), sbitvec([reverse_bits(j) for _, j in x])).elements()
+
+sha256_circuit = Circuit('sha256')
 def sha256(x):
     return sha256_circuit(sbitvec([i for i, _ in x]), sbitvec([j for _, j in x])).elements()
 
@@ -40,6 +66,10 @@ def reveal(x):
 # tls_handshake_secret_ikm = sb256(0x8bd4054fb55b9d63fdfbacf9f04b9f0d35e6d63f537563efd46272900f89492d) # ecdhe result from rfc8448
 # tls_ch_sh_traffic_transcript_hash = sb256(0x860c06edc07858ee8e78f0e7428c58edd6b43f2ca3e6e95f02ed063cf0e1cad8) # from rfc8448
 # tls_ch_sf_traffic_transcript_hash = sb256(0x9608102a0f1ccc6db6250b7b7e417b1a000eaada3daae4777a7686c9ff83df13) # from rfc8448
+
+tls_client_key = get_input_from(sb256, 0)
+tls_client_share = get_input_from(sb256, 0)
+tls_server_share = get_input_from(sb256, 0)
 
 tls_handshake_secret_ikm = get_input_from(sb256, 0)
 tls_ch_sh_traffic_transcript_hash = get_input_from(sb256, 0)
@@ -155,29 +185,58 @@ reveal(tls_c_ap_traffic_secret_iv_prepped)
 
 start_timer(1)
 
-def reverse_bits(x):
-    return sbits.get_type(x.n).bit_compose(x.bit_decompose().__reversed__())
-
-aes128_key_schedule = Circuit('aes128_key_schedule')
-aes128_with_key_schedule = Circuit('aes128_with_key_schedule')
-
-tls_c_ap_traffic_secret_key_schedule = aes128_key_schedule(sbitvec([reverse_bits(tls_c_ap_traffic_secret_key)])).elements()[0]
-tls_c_ap_traffic_secret_key_schedule_reversed =  reverse_bits(tls_c_ap_traffic_secret_key_schedule)
+tls_c_ap_traffic_secret_key_schedule = aes128_key_schedule([tls_c_ap_traffic_secret_key])[0]
+# tls_c_ap_traffic_secret_key_schedule = aes128_key_schedule(sbitvec([reverse_bits(tls_c_ap_traffic_secret_key)])).elements()[0]
+# tls_c_ap_traffic_secret_key_schedule_reversed =  reverse_bits(tls_c_ap_traffic_secret_key_schedule)
 
 start_timer(2)
 
-plaintexts = list([sb128(0)] + [tls_c_ap_traffic_secret_iv_prepped ^ sb128(i) for i in range(1, 1026)])
-plaintexts = list([reverse_bits(x) for x in plaintexts])
-ciphertexts = aes128_with_key_schedule(sbitvec([tls_c_ap_traffic_secret_key_schedule_reversed] * 1026), sbitvec(plaintexts))
+plaintexts = list([sb128(0)] + [tls_c_ap_traffic_secret_iv_prepped ^ sb128(i) for i in range(1, 2 + plaintext_len_blocks)])
+# plaintexts = list([reverse_bits(x) for x in plaintexts])
+# ciphertexts = aes128_with_key_schedule(sbitvec([tls_c_ap_traffic_secret_key_schedule_reversed] * 1026), sbitvec(plaintexts))
+
+ciphertexts = aes128_with_key_schedule([(tls_c_ap_traffic_secret_key_schedule, i) for i in plaintexts])
 
 # aes128 = Circuit('aes_128')
 # plaintexts = list([sb128(0)] + [tls_c_ap_traffic_secret_iv_prepped ^ sb128(i) for i in range(1, 1026)])
 # ciphertexts = aes128(sbitvec([tls_c_ap_traffic_secret_key] * 1026), sbitvec(plaintexts))
 
-gcm_h = ciphertexts.elements()[0]
+gcm_h = ciphertexts[0]
 # reveal(gcm_h) # 0x90f036b71481be7c5c3a477c320373d1
-gcm_s = ciphertexts.elements()[1]
+gcm_s = ciphertexts[1]
+ciphertexts = ciphertexts[2:]
 # reveal(gcm_s) # 0x595e164e537354b9627ea253d23e883e
-for i, element in enumerate(ciphertexts.elements()[2:]):
-    reveal(get_input_from(sb128, 0) ^ element)
-    # reveal(element)
+# for i, element in enumerate(ciphertexts[2:]):
+#     reveal(get_input_from(sb128, 0) ^ element)
+#     reveal(element)
+
+start_timer(3)
+
+for i in range(0, len(ciphertexts)):
+    ciphertexts[i] ^= get_input_from(sb128, 0)
+    if i == len(ciphertexts) - 1:
+        ciphertexts[i] &= sb128(ciphertext_mask)
+    ciphertexts[i].reveal().print_reg()
+
+start_timer(4)
+
+TLS_GCM_HEADER_BASE = sb128(0x17030300000000000000000000000000)
+TLS_GCM_TRAILER_BASE = sb128(0x00000000000000280000000000000000)
+tls_gcm_header_len = plaintext_len_bytes + 16
+
+tls_gcm_header = TLS_GCM_HEADER_BASE ^ sb128(tls_gcm_header_len << 88)
+tls_gcm_header.reveal().print_reg()
+tls_gcm_trailer = TLS_GCM_TRAILER_BASE ^ sb128(plaintext_len_bits)
+tls_gcm_trailer.reveal().print_reg()
+
+def make_gcm_tag(h, s, blocks):
+    tag = sb128(0)
+    for block in blocks:
+        tag ^= block
+        tag = gmul([(tag, h)])[0]
+    tag ^= s
+    return tag
+
+gcm_tag = make_gcm_tag(gcm_h, gcm_s, [tls_gcm_header] + ciphertexts + [tls_gcm_trailer])
+
+gcm_tag.reveal().print_reg()

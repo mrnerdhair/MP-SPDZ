@@ -1,0 +1,79 @@
+from Compiler.library import *
+from Compiler.circuit import *
+from Compiler.types import *
+from Compiler.GC.types import *
+
+sb128 = sbits.get_type(128)
+
+# foo = get_sgf2nuint(128)
+
+def rv(x):
+    return int(bytes(list(list(bytes(bin(x)[2:], "utf-8")).__reversed__())).decode("utf-8"), 2)
+
+# x = foo(0x0388dace60b6a392f328c2b971b2fe78) * foo(0x66e94bd4ef8a2c3b884cfa59ca342b2e)
+# x = sgf2n(rv(0x0388dace60b6a392f328c2b971b2fe78)) * sgf2n(rv(0x66e94bd4ef8a2c3b884cfa59ca342b2e))
+# x += sgf2n(0x00000000000000000000000000000080)
+# x *= sgf2n(rv(0x66e94bd4ef8a2c3b884cfa59ca342b2e))
+
+# sgf2n(rv(0xbbf72fd1161c32d158b4b726d1ad3050)).reveal().print_reg()
+# x.reveal().print_reg()
+
+# h = sgf2n(0x66e94bd4ef8a2c3b884cfa59ca342b2e)
+
+# gmul_raw = Circuit('gmul')
+
+# def reverse_bits(x):
+#     return sbits.get_type(x.n).bit_compose(x.bit_decompose().__reversed__())
+
+# def gmul(x, y):
+#     return gmul_raw(sbitvec([reverse_bits(x)]), sbitvec([reverse_bits(y)])).elements()[0]
+
+# # foo = gmul(sb128(0x0388dace60b6a392f328c2b971b2fe78), sb128(0x66e94bd4ef8a2c3b884cfa59ca342b2e))
+
+# h = sb128(0x90f036b71481be7c5c3a477c320373d1)
+
+# foo = sb128(0)
+# foo ^= sb128(0x17030300430000000000000000000000)
+# foo = gmul(foo, h)
+# foo ^= sb128(0xa23f7054b62c94d0affafe8228ba55cb)
+# foo = gmul(foo, h)
+# foo ^= sb128(0xefacea42f914aa66bcab3f2b9819a8a5)
+# foo = gmul(foo, h)
+# foo ^= sb128(0xb46b395bd54a9a20441e2b62974e1f5a)
+# foo = gmul(foo, h)
+# foo ^= sb128(0x6292a200000000000000000000000000)
+# foo = gmul(foo, h)
+# foo ^= sb128(0x00000000000000280000000000000198)
+# foo = gmul(foo, h)
+
+# foo.reveal().print_reg()
+
+
+def reverse_bits(x):
+    return sbits.get_type(x.n).bit_compose(x.bit_decompose().__reversed__())
+
+gmul_raw = Circuit('gmul')
+def gmul(x):
+    return gmul_raw(sbitvec([reverse_bits(i) for i, _ in x]), sbitvec([reverse_bits(j) for _, j in x])).elements()
+
+gcm_h = sb128(0x90f036b71481be7c5c3a477c320373d1)
+gcm_s = sb128(0x595e164e537354b9627ea253d23e883e)
+
+start_timer(3)
+
+def make_gcm_tag(h, s, blocks):
+    tag = sb128(0)
+    for block in blocks:
+        tag ^= block
+        tag = gmul([(tag, h)])[0]
+    tag ^= s
+    return tag
+
+make_gcm_tag(sb128(0x90f036b71481be7c5c3a477c320373d1), sb128(0x595e164e537354b9627ea253d23e883e), [
+    sb128(0x17030300430000000000000000000000),
+    sb128(0xa23f7054b62c94d0affafe8228ba55cb),
+    sb128(0xefacea42f914aa66bcab3f2b9819a8a5),
+    sb128(0xb46b395bd54a9a20441e2b62974e1f5a),
+    sb128(0x6292a200000000000000000000000000),
+    sb128(0x00000000000000280000000000000198),
+]).reveal().print_reg()
