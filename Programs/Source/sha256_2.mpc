@@ -144,7 +144,7 @@ tls_master_secret_padded = concatsb256(tls_master_secret, HMAC_KEY_PADDING)
 # reveal(tls_c_ap_traffic_secret_hmac_inner) # 0x3b57774842c2cec88a41b7437d9eab64ae5965d8b39e7fb569b5d050da628527
 
 [tls_c_ap_traffic_secret] = sha256([(concatsb256(tls_c_ap_traffic_secret_hmac_inner, HMAC_OUTER_BLOCK_PADDING), tls_master_secret_derived_hmac_outer_intermediate)])
-reveal(tls_c_ap_traffic_secret)
+# reveal(tls_c_ap_traffic_secret)
 
 tls_c_ap_traffic_secret_padded = concatsb256(tls_c_ap_traffic_secret, HMAC_KEY_PADDING)
 [
@@ -171,11 +171,11 @@ tls_c_ap_traffic_secret_padded = concatsb256(tls_c_ap_traffic_secret, HMAC_KEY_P
     (concatsb256(tls_c_ap_traffic_secret_iv_hmac_inner, HMAC_OUTER_BLOCK_PADDING), tls_c_ap_traffic_secret_derived_hmac_outer_intermediate),
 ])
 tls_c_ap_traffic_secret_key = sb128.bit_compose(tls_c_ap_traffic_secret_key_raw.bit_decompose()[128:])
-reveal(tls_c_ap_traffic_secret_key)
+# reveal(tls_c_ap_traffic_secret_key)
 
 tls_c_ap_traffic_secret_iv = sb96.bit_compose(tls_c_ap_traffic_secret_iv_raw.bit_decompose()[160:])
 tls_c_ap_traffic_secret_iv_prepped = sb128.bit_compose([sbit(0)] * 32 + tls_c_ap_traffic_secret_iv.bit_decompose())
-reveal(tls_c_ap_traffic_secret_iv_prepped)
+# reveal(tls_c_ap_traffic_secret_iv_prepped)
 
 # s32 = sint.get_type(32)
 # def reveal_to(player, x):
@@ -225,9 +225,9 @@ TLS_GCM_TRAILER_BASE = sb128(0x00000000000000280000000000000000)
 tls_gcm_header_len = plaintext_len_bytes + 16
 
 tls_gcm_header = TLS_GCM_HEADER_BASE ^ sb128(tls_gcm_header_len << 88)
-tls_gcm_header.reveal().print_reg()
+# tls_gcm_header.reveal().print_reg()
 tls_gcm_trailer = TLS_GCM_TRAILER_BASE ^ sb128(plaintext_len_bits)
-tls_gcm_trailer.reveal().print_reg()
+# tls_gcm_trailer.reveal().print_reg()
 
 def make_gcm_tag(h, s, blocks):
     tag = sb128(0)
