@@ -67,11 +67,12 @@ def reveal(x):
 # tls_ch_sh_traffic_transcript_hash = sb256(0x860c06edc07858ee8e78f0e7428c58edd6b43f2ca3e6e95f02ed063cf0e1cad8) # from rfc8448
 # tls_ch_sf_traffic_transcript_hash = sb256(0x9608102a0f1ccc6db6250b7b7e417b1a000eaada3daae4777a7686c9ff83df13) # from rfc8448
 
-tls_client_key = get_input_from(sb256, 0)
 tls_client_share = get_input_from(sb256, 0)
-tls_server_share = get_input_from(sb256, 0)
-
 tls_handshake_secret_ikm = get_input_from(sb256, 0)
+
+tls_client_share.reveal().print_reg()
+
+tls_server_share = get_input_from(sb256, 0)
 tls_ch_sh_traffic_transcript_hash = get_input_from(sb256, 0)
 tls_ch_sf_traffic_transcript_hash = get_input_from(sb256, 0)
 
