@@ -241,3 +241,8 @@ def make_gcm_tag(h, s, blocks):
 gcm_tag = make_gcm_tag(gcm_h, gcm_s, [tls_gcm_header] + ciphertexts + [tls_gcm_trailer])
 
 gcm_tag.reveal().print_reg()
+
+transcript_committment = get_input_from(sb256, 0)
+
+tls_handshake_secret_ikm.reveal().print_reg()
+transcript_committment.reveal().print_reg()
